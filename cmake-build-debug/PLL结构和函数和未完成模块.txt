@@ -1,0 +1,86 @@
+Create by 李益 2025/1/10
+
+输入信号通过硬件 ADC 采集为数字信号，以供处理。直接处理数字信号
+数据采集：通过定时器中断采样输入信号（待测信号）和参考信号的数据。
+输出：生成同步的正弦和余弦波输出到 DAC。
+
+频率锁定：通过输入信号的频率特性生成与其频率相同的输出信号。
+相位锁定：调整输出信号的相位，使其与输入信号同相。
+幅值调节：生成可控幅值的正弦/余弦信号。
+函数：
+  缓冲区域存储数据，使用volatile避免被程序优化
+  设置参数
+  初始化ADC（根据具体的单片机）//待补
+  再加个定时器，定时采样
+  滤波器·过滤噪声
+拆分为每个函数：
+主函数(){
+0）滤波
+1）提取相位和频率
+2）调整PLL
+3）生成同步信号
+4）生成波
+5）输出
+}
+
+程序主要结构和函数：
+1.头文件和宏定义部分
+2. 全局变量定义
+    channel1Data 和 channel2Data 存储输入信号和参考信号的数据。
+    dataReady  指示是否已准备好新数据进行处理。
+ 锁相环（PLL）相关参数：phaseAcc, phaseStep,
+  currentPhase, amplitude。
+
+3. 硬件相关的初始化函
+ initADC：初始化 ADC 通道的配置。
+ readADC：模拟函数来读取 ADC 数据（目前返回虚拟数据，待完成）。
+
+4. 定时中断处理
+   timeIntH：定时器中断服务函数，用于采样 ADC 数据，并存储到数据缓冲区。每次采样后，设置 dataReady 标志。
+
+5.信号处理部分
+   lowPassFilter：实现简单的低通滤波器（IIR 滤波器）。
+   extractFrequency：计算信号频率，基于零交叉点检测。
+   calculatePhaseError：计算输入信号和参考信号的相位误差（使用余弦相似度）。
+   estimateAmplitude：动态估算信号的幅值。
+6.输出函数
+   outputToDAC：将生成的正弦波和余弦波信号输出到 DAC（数字模拟转换器）。
+7. 锁相环（PLL）算法
+   pllAl：主 PLL 算法函数，执行低通滤波、频率提取、相位误差计算、幅值估算、同步信号生成和输出。
+8. 主函数
+   初始化硬件（ADC、定时器等）。
+   循环执行锁相环算法 pllAl，直到满足一定条件。
+
+未完成模块：
+1.initADC 函数尚未实现：
+     ADC（模数转换器）初始化还没有实现，
+     需要根据使用的硬件平台来配置 ADC。
+2.readADC 函数需要补充：
+     目前只是返回了一个虚假的数据。
+     需要根据硬件平台实现 ADC 读取功能，返回实际的采样数据。
+3.configureTimerInterrupt 函数：
+     需要根据硬件平台配置定时器中断。
+4.writeDAC 函数：
+     需要实现该函数来控制 DAC 输出信号，
+     或根据使用的硬件平台使用现有的 DAC 库函数。
+5.pllAl 函数中的 phaseAcc 的调整：
+     pllAl 函数中使用了 phaseAcc 和 phaseStep 来控制信号
+     的相位，但对 phaseAcc 的控制过于简单，仅仅是通过
+     phaseError * 0.01 来更新。如果我们想实现更精确的相位锁定，
+     可以考虑使用更复杂的控制器，如 PI 控制器或 PID 控制器来
+     动态调整 phaseAcc 和 phaseStep。
+6.timeIntH 函数中的 sampleIndex：
+     sampleIndex 是一个静态变量，它记录当前采样的位置。当
+     sampleIndex 达到 256 时，重置为 0 并将 dateReady 设置
+     为 true。目前没有对 dateReady 进行处理和使用，它应该在
+     主函数中用于判断是否可以开始进行锁相环（PLL）算法的处理。
+7.volatile 修饰符的使用：
+     在一些地方，我使用了 volatile 修饰符，
+     channel1Data 和 channel2Data等，所以这些
+     数据可能会被中断服务程序或硬件修改。但
+     在 lowPassFilter、extractFrequency 等函数中，我将其作为常规变
+     量传递，而不是 volatile。虽然这不会引起编译错误，但为了确保程序的正
+     确性，应该在接下来处理这些变量时，始终使用 volatile。
+8. amplitude 的动态估算：
+     如果信号存在较大噪声，可能需要改进这一算法。
+Create by 李益 2025/1/10
